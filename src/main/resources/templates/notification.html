@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8">
+    <title>알림창</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+</head>
+<body>
+<div class="container mt-5">
+    <h2 class="mb-4">알림창</h2>
+
+    <!-- 알림 목록 -->
+    <ul id="notificationList" class="list-group mb-3"></ul>
+
+    <!-- 새로고침 버튼 -->
+    <button class="btn btn-primary" id="refreshNotifications">새로 고침</button>
+</div>
+
+<script>
+    // 알림 불러오기 함수
+    function loadNotifications() {
+        $.get('/api/notifications', function(notifications) {
+            const notificationList = $('#notificationList');
+            notificationList.empty();
+
+            if (!notifications || notifications.length === 0) {
+                notificationList.append('<li class="list-group-item text-danger">새로운 알림이 없습니다.</li>');
+                return;
+            }
+
+            // 최신 알림이 위로 오도록 표시
+            notifications.reverse().forEach(notification => {
+                let actionButtons = '';
+
+                // 상태에 따라 버튼 또는 응답 완료 메시지 표시
+                if (notification.status === 'PENDING') {
+                    actionButtons = `
+                    <button class="btn btn-sm btn-success accept-btn" data-id="${notification.id}">예</button>
+                    <button class="btn btn-sm btn-danger decline-btn" data-id="${notification.id}">아니오</button>
+                `;
+                } else if (notification.status === 'ACCEPTED') {
+                    actionButtons = '<span class="text-success">초대 수락됨</span>';
+                } else if (notification.status === 'DECLINED') {
+                    actionButtons = '<span class="text-danger">초대 거절됨</span>';
+                }
+
+                const listItem = $(`
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    ${notification.message}
+                    <div>${actionButtons}</div>
+                </li>
+            `);
+                notificationList.prepend(listItem);
+            });
+
+            // 수락 버튼 이벤트
+            $('.accept-btn').click(function() {
+                const notificationId = $(this).data('id');
+                respondToInvitation(notificationId, true);
+            });
+
+            // 거절 버튼 이벤트
+            $('.decline-btn').click(function() {
+                const notificationId = $(this).data('id');
+                respondToInvitation(notificationId, false);
+            });
+        }).fail(function(error) {
+            console.error('알림 불러오기 오류:', error);
+        });
+    }
+
+    // 초대 수락/거절 처리 함수
+    function respondToInvitation(notificationId, isAccepted) {
+        $.ajax({
+            url: `/api/notifications/${notificationId}/respond`,
+            type: 'PUT',
+            contentType: 'application/json',
+            data: JSON.stringify({ accepted: isAccepted }),
+            success: function(response) {
+                alert(isAccepted ? '초대를 수락했습니다.' : '초대를 거절했습니다.');
+
+                // // 해당 알림 항목의 버튼 숨기기
+                // const listItem = $(`[data-id="${notificationId}"]`).closest('li');
+                // listItem.find('div').html('<span class="text-success">응답 완료</span>');
+
+                // 성공 후 새로고침하여 최신 상태 반영
+                loadNotifications();
+            },
+            error: function(error) {
+                console.error('초대 응답 오류:', error);
+                alert('초대 응답 처리에 실패했습니다.');
+            }
+        });
+    }
+
+
+    // 새로고침 버튼 클릭 시 알림 갱신
+    $('#refreshNotifications').click(loadNotifications);
+
+    // 페이지 로드 시 알림 자동 로드
+    $(document).ready(function() {
+        loadNotifications();
+    });
+</script>
+
+</body>
+</html>

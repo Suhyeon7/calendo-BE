@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8">
+    <title>calendo</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.0/main.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.0/main.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.0/locales-all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+</head>
+<body th:style="'background-color:' + ${temaColor}">
+<div class="container mt-5">
+
+    <div th:if="${userName}">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2 th:text="${userName} + ' 님'"></h2>
+            <div>
+                <button class="btn btn-primary me-2" id="view-projects-btn" onclick="fetchProjects()" >프로젝트 조회</button>
+                <a th:href="@{/createProject}" class="btn btn-success me-2">프로젝트 생성</a>
+                <a th:href="@{/notifications}" class="btn btn-warning me-2">알림창</a>
+                <a th:href="@{/logout}" class="btn btn-info active">로그아웃</a>
+            </div>
+        </div>
+        <!-- 프로젝트 목록 섹션 -->
+        <h3 class="mt-4">내 프로젝트 목록</h3>
+        <ul id="project-list" class="list-group mb-4">
+            <!--<li class="list-group-item text-muted">프로젝트 조회 버튼을 눌러 프로젝트를 확인하세요.</li>-->
+        </ul>
+
+        <!-- 멤버 목록 표시 영역 추가 + 멤버추가-->
+        <div class="container mt-5">
+            <h2 id="project-title" class="mb-4">프로젝트 멤버 관리</h2>
+
+            <!-- 프로젝트 멤버 리스트 -->
+            <h4>프로젝트 멤버</h4>
+            <ul id="projectMembers" class="list-group mb-4"></ul>
+
+<!--            &lt;!&ndash; 닉네임 검색 &ndash;&gt;-->
+<!--            <div class="mb-3">-->
+<!--                <label for="searchInput" class="form-label">팀원 닉네임 검색</label>-->
+<!--                <div class="input-group">-->
+<!--                    <input type="text" id="searchInput" class="form-control" placeholder="닉네임을 입력하세요">-->
+<!--                    <button class="btn btn-primary" type="button" id="searchButton">검색</button>-->
+<!--                </div>-->
+<!--            </div>-->
+
+<!--            &lt;!&ndash; 검색 결과 표시 &ndash;&gt;-->
+<!--            <ul id="searchResults" class="list-group mb-3"></ul>-->
+
+        </div>
+        <!-- ✅ 마이페이지 버튼 추가 -->
+        <div class="d-flex justify-content-end mb-3">
+            <a href="/api/users/mypage" class="btn btn-primary">마이페이지 보기</a>
+        </div>
+
+        <h3 class="mt-4">테마 색상 변경</h3>
+        <div class="d-flex align-items-center mb-4">
+            <input type="color" id="colorPicker" th:value="${temaColor}" class="form-control form-control-color me-2" title="테마 색상 선택">
+        </div>
+
+        <h3 class="mt-4">캘린더</h3>
+        <div id="calendar"></div>
+
+        <hr>
+
+        <h3 id="selected-date-title">선택한 날짜: 없음</h3>
+
+        <button class="btn btn-success mb-2" id="add-schedule-btn">+ 일정 추가</button>
+        <h3>일정 목록</h3>
+        <ul id="schedule-list" class="list-group"></ul>
+
+        <button class="btn btn-primary mb-2" id="add-todo-btn">+ 투두 추가</button>
+        <h3>투두 리스트</h3>
+        <ul id="todo-list" class="list-group"></ul>
+
+        <h3 class="mt-4">사용자 검색</h3>
+        <div class="input-group mb-3">
+            <input type="text" id="searchInput" class="form-control" placeholder="닉네임으로 사용자 검색">
+            <button class="btn btn-primary" type="button" id="searchButton">검색</button>
+        </div>
+        <ul id="searchResults" class="list-group"></ul>
+
+<!--        <h3 class="mt-4">프로젝트 일정 추가</h3>-->
+<!--        <form id="project-schedule-form">-->
+<!--            <input type="hidden" id="scheduleProjectId" value="">-->
+<!--            <div class="mb-3">-->
+<!--                <label for="scheduleTitle" class="form-label">일정 제목</label>-->
+<!--                <input type="text" id="scheduleTitle" name="title" class="form-control" required>-->
+<!--            </div>-->
+<!--            <div class="mb-3">-->
+<!--                <label for="scheduleStartDateTime" class="form-label">시작 날짜 및 시간</label>-->
+<!--                <input type="datetime-local" id="scheduleStartDateTime" name="startDateTime" class="form-control" required>-->
+<!--            </div>-->
+<!--            <div class="mb-3">-->
+<!--                <label for="scheduleEndDateTime" class="form-label">종료 날짜 및 시간</label>-->
+<!--                <input type="datetime-local" id="scheduleEndDateTime" name="endDateTime" class="form-control" required>-->
+<!--            </div>-->
+<!--            <button type="submit" class="btn btn-success">프로젝트 일정 추가</button>-->
+<!--        </form>-->
+
+
+    </div>
+
+    <div th:if="!${userName}">
+        <a th:href="@{/oauth2/authorization/google}" class="btn btn-primary me-2 active">Google Login</a>
+    </div>
+</div>
+
+<!-- ✅ 수정할 일정 정보를 입력하는 모달 추가 -->
+<div id="edit-schedule-modal" class="modal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">일정 수정</h5>
+                <button type="button" class="btn-close" onclick="closeModal('edit-schedule-modal')"></button>
+            </div>
+            <div class="modal-body">
+                <form id="edit-schedule-form">
+                    <input type="hidden" id="editScheduleId">
+                    <div class="mb-3">
+                        <label for="editTitle" class="form-label">일정 제목</label>
+                        <input type="text" id="editTitle" name="title" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editStartDateTime" class="form-label">시작 날짜 및 시간</label>
+                        <input type="datetime-local" id="editStartDateTime" name="startDateTime" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editEndDateTime" class="form-label">종료 날짜 및 시간</label>
+                        <input type="datetime-local" id="editEndDateTime" name="endDateTime" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editRepeatType" class="form-label">반복 설정</label>
+                        <select id="editRepeatType" name="repeatType" class="form-select">
+                            <option value="NONE">반복 없음</option>
+                            <option value="WEEKLY">매주</option>
+                            <option value="MONTHLY">매월</option>
+                            <option value="YEARLY">매년</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">수정 완료</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<!-- 일정 추가 모달 -->
+<div id="schedule-modal" class="modal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">일정 추가</h5>
+                <button type="button" class="btn-close" onclick="closeModal('schedule-modal')"></button>
+            </div>
+            <div class="modal-body">
+                <form id="schedule-form">
+                    <input type="hidden" id="selectedDate">
+                    <div class="mb-3">
+                        <label for="title" class="form-label">일정 제목</label>
+                        <input type="text" id="title" name="title" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="startDateTime" class="form-label">시작 날짜 및 시간</label>
+                        <input type="datetime-local" id="startDateTime" name="startDateTime" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="endDateTime" class="form-label">종료 날짜 및 시간</label>
+                        <input type="datetime-local" id="endDateTime" name="endDateTime" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="repeatType" class="form-label">반복 설정</label>
+                        <select id="repeatType" name="repeatType" class="form-select">
+                            <option value="NONE">반복 없음</option>
+                            <option value="WEEKLY">매주</option>
+                            <option value="MONTHLY">매월</option>
+                            <option value="YEARLY">매년</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-success">추가</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 투두 추가 모달 -->
+<div id="todo-modal" class="modal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">투두 추가</h5>
+                <button type="button" class="btn-close" onclick="closeModal('todo-modal')"></button>
+            </div>
+            <div class="modal-body">
+                <form id="todo-form">
+                    <input type="hidden" id="todoDate">
+                    <div class="mb-3">
+                        <label for="todoTitle" class="form-label">할 일</label>
+                        <input type="text" id="todoTitle" name="title" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">추가</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 페이지 로드 시 저장된 테마 색상 자동 적용
+    document.addEventListener("DOMContentLoaded", function() {
+        const savedColor = /*[[${temaColor}]]*/ '';  // 서버에서 전달된 테마 색상
+
+        if (savedColor) {
+            document.body.style.backgroundColor = savedColor;  // 저장된 색상 적용
+            document.getElementById('colorPicker').value = savedColor;  // 컬러 팔레트에도 적용
+        }
+    });
+
+    // 색상 선택 시 자동 저장 및 배경색 적용
+    document.getElementById('colorPicker').addEventListener('input', function(event) {
+        const selectedColor = event.target.value;
+
+        fetch('/change-theme', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: `color=${encodeURIComponent(selectedColor)}`
+        })
+            .then(response => response.text())
+            .then(result => {
+                alert(result);  // "테마 색상이 변경되었습니다!" 알림
+                document.body.style.backgroundColor = selectedColor;  // 즉시 적용
+            })
+            .catch(error => console.error('Error:', error));
+    });
+
+    function fetchSchedules(date) {
+        $.get('/api/schedules?date=' + date, function (schedules) {
+            $('#schedule-list').empty();
+            schedules.forEach(schedule => {
+                $('#schedule-list').append(`
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        ${schedule.title}
+                        <div>
+                            <button class="btn btn-warning btn-sm" onclick='openEditScheduleModal(${JSON.stringify(schedule)})'>수정</button>
+                            <a href="/delete-schedule/${schedule.id}" class="btn btn-danger btn-sm">삭제</a>
+                        </div>
+                    </li>
+                `);
+            });
+        });
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+        var calendarEl = document.getElementById('calendar');
+        var calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            locale: 'ko',
+            dateClick: function(info) {
+                let selectedDate = info.dateStr;
+                document.getElementById('selected-date-title').innerText = "선택한 날짜: " + selectedDate;
+                document.getElementById('selectedDate').value = selectedDate;
+                document.getElementById('todoDate').value = selectedDate;
+
+                fetchSchedules(selectedDate);
+                fetchTodos(selectedDate);
+            }
+        });
+        calendar.render();
+    });
+    function openEditScheduleModal(schedule) {
+        console.log("🛠 수정할 일정 정보:", schedule);
+
+        if (!schedule) {
+            console.error("❌ 일정 정보가 없습니다.");
+            return;
+        }
+
+        $('#editScheduleId').val(schedule.id);
+        $('#editTitle').val(schedule.title);
+        $('#editStartDateTime').val(schedule.startDateTime.replace(" ", "T"));
+        $('#editEndDateTime').val(schedule.endDateTime.replace(" ", "T"));
+        $('#editRepeatType').val(schedule.repeatType || "NONE");
+
+        $('#edit-schedule-modal').show();
+    }
+
+    $('#edit-schedule-form').submit(function(event) {
+        event.preventDefault();
+
+        let scheduleId = $('#editScheduleId').val();
+        let formData = {
+            title: $('#editTitle').val(),
+            startDateTime: $('#editStartDateTime').val(),
+            endDateTime: $('#editEndDateTime').val(),
+            repeatType: $('#editRepeatType').val()
+        };
+
+        $.ajax({
+            url: `/api/schedules/update/${scheduleId}`,
+            type: 'PUT',
+            contentType: 'application/json',
+            data: JSON.stringify(formData),
+            success: function(response) {
+                console.log("✅ 일정 수정 성공:", response);
+                $('#edit-schedule-modal').hide();
+                fetchSchedules($('#selected-date-title').text().replace("선택한 날짜: ", ""));
+            },
+            error: function(error) {
+                console.error("❌ 일정 수정 오류:", error);
+                alert("일정 수정에 실패했습니다.");
+            }
+        });
+    });
+    function fetchTodos(date) {
+        $.get('/api/todos?date=' + date, function (todos) {
+            $('#todo-list').empty();
+            todos.forEach(todo => {
+                let checked = todo.checked ? 'checked' : '';
+                let textDecoration = todo.checked ? 'text-decoration: line-through;' : '';
+
+                $('#todo-list').append(`
+                <li class="list-group-item d-flex justify-content-between align-items-center todo-item" data-id="${todo.id}">
+                    <div>
+                        <input type="checkbox" class="todo-checkbox" data-id="${todo.id}" ${checked}>
+                        <span class="todo-text" style="${textDecoration}">${todo.title}</span>
+                    </div>
+                </li>
+            `);
+            });
+
+            enableTodoEditing();
+            $('.todo-checkbox').change(toggleTodo);
+        });
+    }
+
+    // ✅ 투두 수정 기능 추가
+    function enableTodoEditing() {
+        $(document).on('click', '.todo-text', function() {
+            let todoId = $(this).closest('.todo-item').data('id');
+            let currentText = $(this).text();
+            let input = `<input type="text" class="todo-edit-input form-control" value="${currentText}" data-id="${todoId}">`;
+            $(this).replaceWith(input);
+            $('.todo-edit-input').focus();
+        });
+
+        $(document).on('blur', '.todo-edit-input', function() {
+            let newText = $(this).val();
+            let todoId = $(this).data('id');
+
+            $.ajax({
+                url: `/api/todos/update/${todoId}`,
+                type: 'PUT',
+                contentType: 'application/json',
+                data: JSON.stringify({ title: newText }),
+                success: function(response) {
+                    fetchTodos($('#selected-date-title').text().replace("선택한 날짜: ", ""));
+                },
+                error: function(error) {
+                    alert("투두 수정에 실패했습니다.");
+                }
+            });
+        });
+    }
+
+    enableTodoEditing();
+
+    // ✅ 투두 체크 상태 변경
+    function toggleTodo() {
+        let todoId = $(this).data('id');
+        $.ajax({
+            url: `/api/todos/toggle/${todoId}`,
+            type: 'PUT',
+            success: function(response) {
+                fetchTodos($('#selected-date-title').text().replace("선택한 날짜: ", ""));
+            },
+            error: function(error) {
+                alert("체크 상태 변경에 실패했습니다.");
+            }
+        });
+    }
+
+
+    /** ✅ 일정 추가 버튼 클릭 시 모달 표시 **/
+    document.getElementById('add-schedule-btn').addEventListener('click', function () {
+        console.log("✅ 일정 추가 버튼 클릭됨");  // 🔍 디버깅용 로그
+        document.getElementById('schedule-modal').style.display = 'block';
+    });
+
+    /** ✅ 투두 추가 버튼 클릭 시 모달 표시 **/
+    document.getElementById('add-todo-btn').addEventListener('click', function () {
+        console.log("✅ 투두 추가 버튼 클릭됨");  // 🔍 디버깅용 로그
+        document.getElementById('todo-modal').style.display = 'block';
+    });
+
+    /** ✅ 모달 닫기 **/
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+    }
+
+    /** ✅ 일정 추가 요청 */
+    $('#schedule-form').submit(function(event) {
+        event.preventDefault();  // ✅ 기본 폼 제출 방지
+        let formData = $(this).serialize();
+        let selectedDate = $('#selectedDate').val();
+
+        console.log("📤 일정 추가 요청 데이터:", formData);  // 🔍 디버깅용 로그
+        if (!selectedDate) {
+            alert("날짜를 먼저 선택해주세요!");
+            return;
+        }
+
+        $.post('/add-schedule', formData)
+            .done(function(response) {
+                console.log("✅ 일정 추가 성공:", response);
+                closeModal('schedule-modal');
+                fetchSchedules(selectedDate);  // ✅ 일정 목록 다시 불러오기
+            })
+            .fail(function(error) {
+                console.error("🚨 일정 추가 오류:", error);
+                alert("일정 추가에 실패했습니다.");
+            });
+    });
+    $('#todo-form').submit(function(event) {
+        event.preventDefault();
+
+        let formData = {
+            title: $('#todoTitle').val()
+        };
+
+        console.log("📌 투두 추가 요청 데이터:", formData);
+
+        $.ajax({
+            url: '/api/todos/add',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(formData),
+            success: function(response) {
+                console.log("✅ 투두 추가 성공:", response);
+                closeModal('todo-modal');
+                fetchTodos($('#todoDate').val());
+            },
+            error: function(error) {
+                console.error("❌ 투두 추가 오류:", error);
+                alert("투두 추가 실패: " + error.responseText);
+            }
+        });
+    });
+
+    /** ✅ 닉네임 검색 기능 */
+    $('#searchButton').click(function () {
+        let query = $('#searchInput').val().trim();
+
+        if (!query) {
+            alert("닉네임을 입력해주세요!");
+            return;
+        }
+
+        fetch(`/users/search?nickName=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(users => displaySearchResults(users, 'member'))
+            .catch(error => console.error('검색 오류:', error));
+    });
+
+
+    // ✅ 검색 결과 표시 (프로젝트 생성/멤버 추가 구분)
+    function displaySearchResults(users, context) {
+        let resultsContainer = context === 'project' ? $('#projectSearchResults') : $('#memberSearchResults');
+        resultsContainer.empty();
+
+        if (!users || users.length === 0) {
+            resultsContainer.append('<li class="list-group-item text-danger">검색 결과가 없습니다.</li>');
+            return;
+        }
+
+        users.forEach(user => {
+            const listItem = $(`
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                ${user.nickName}
+                <button class="btn btn-sm btn-success add-btn" data-nickname="${user.nickName}" data-context="${context}">추가</button>
+            </li>
+        `);
+            resultsContainer.append(listItem);
+        });
+
+        // ✅ 추가 버튼 이벤트
+        $('.add-btn').click(function () {
+            const nickname = $(this).data('nickname');
+            const context = $(this).data('context');
+
+            if (context === 'project') {
+                addMemberToProject(nickname);
+            } else {
+                inviteMember(nickname, currentProjectId);
+            }
+        });
+    }
+
+
+
+
+    /** 프로젝트 조회 버튼 클릭 시 데이터 불러오기 **/
+    document.getElementById('view-projects-btn').addEventListener('click', function () {
+        console.log("📁 프로젝트 조회 버튼 클릭됨");  // 디버깅용 로그
+        fetchProjects();  // 프로젝트 목록 불러오기
+    });
+
+
+    /** 서버에서 프로젝트 목록 가져오기 **/
+    function fetchProjects() {
+        fetch('/api/projects')
+            .then(response => response.json())
+            .then(projects => {
+                displayProjects(projects);
+            })
+            .catch(error => {
+                console.error('🚨 프로젝트 불러오기 오류:', error);
+            });
+    }
+
+    /** 프로젝트 목록을 페이지에 직접 표시 **/
+    function displayProjects(projects) {
+        const projectList = document.getElementById('project-list');
+        projectList.innerHTML = '';  // 기존 목록 초기화
+
+        if (!projects || projects.length === 0) {
+            projectList.innerHTML = '<li class="list-group-item text-danger">속해있는 프로젝트가 없습니다.</li>';
+            return;
+        }
+
+        projects.forEach(project => {
+            const listItem = document.createElement('li');
+            listItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+            listItem.innerHTML = `
+                ${project.projectName}
+                <button class="btn btn-sm btn-primary select-project-btn" data-id="${project.id}" data-name="${project.projectName}">
+                    선택
+                </button>
+            `;
+            // ✅ 프로젝트 클릭 시 멤버 조회
+            listItem.addEventListener('click', function () {
+                fetchProjectMembers(project.id, project.projectName);
+            });
+
+            projectList.appendChild(listItem);
+        });
+        // "선택" 버튼 클릭 이벤트 추가
+        document.querySelectorAll('.select-project-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const projectId = this.getAttribute('data-id');
+                const projectName = this.getAttribute('data-name');
+
+                // project.html로 이동
+
+                window.location.href = `/project?projectId=${projectId}&projectName=${encodeURIComponent(projectName)}`;
+            });
+        });
+    }
+
+    /** 멤버 목록 표시 함수 **/
+    let currentProjectId = null;  // 현재 선택된 프로젝트 ID 저장
+
+    // ✅ 프로젝트 선택 시 멤버 조회
+    function fetchProjectMembers(projectId, projectName) {
+        currentProjectId = projectId;
+        $('#project-title').text(`${projectName} - 멤버 관리`);
+
+        fetch(`/api/projects/${projectId}/members`)
+            .then(response => response.json())
+            .then(members => displayMembers(members))
+            .catch(error => console.error('멤버 조회 오류:', error));
+    }
+
+    //프로젝트 정보
+    function selectProject(projectId, projectName) {
+        currentProjectId = projectId;
+        document.getElementById('scheduleProjectId').value = projectId;
+
+        console.log("✅ 선택된 프로젝트:", projectName, "ID:", projectId);
+
+        // ✅ 서버 세션에 프로젝트 정보 저장 요청
+        fetch('/api/session/setProject', {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ projectId: projectId, projectName: projectName })
+        })
+            .then(response => {
+                if (response.ok) {
+                    console.log("✅ 프로젝트 정보가 세션에 저장됨");
+                } else {
+                    console.error("❌ 프로젝트 세션 저장 실패");
+                }
+            })
+            .catch(error => console.error("❌ 세션 저장 오류:", error));
+    }
+
+
+
+    // ✅ 프로젝트 멤버 표시
+    function displayMembers(members) {
+        const memberList = $('#projectMembers');
+        memberList.empty();
+
+        if (!members || members.length === 0) {
+            memberList.append('<li class="list-group-item text-danger">멤버가 없습니다.</li>');
+            return;
+        }
+
+        members.forEach(member => {
+            memberList.append(`<li class="list-group-item">${member.nickName}</li>`);
+        });
+    }
+
+    // ✅ 닉네임 검색 기능
+    $('#searchButton').click(function () {
+        const query = $('#searchInput').val().trim();
+
+        if (!query) {
+            alert("닉네임을 입력하세요!");
+            return;
+        }
+
+        fetch(`/users/search?nickName=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(users => displaySearchResults(users))
+            .catch(error => console.error('검색 오류:', error));
+    });
+
+    // ✅ 검색 결과 표시 및 초대 버튼 추가
+    function displaySearchResults(users) {
+        const resultsContainer = $('#searchResults');
+        resultsContainer.empty();
+
+        if (!users || users.length === 0) {
+            resultsContainer.append('<li class="list-group-item text-danger">검색 결과가 없습니다.</li>');
+            return;
+        }
+
+        users.forEach(user => {
+            const listItem = $(`
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                ${user.nickName}
+                <button class="btn btn-sm btn-success invite-btn" data-nickname="${user.nickName}">추가</button>
+            </li>
+        `);
+            resultsContainer.append(listItem);
+        });
+
+        // ✅ 멤버 초대 버튼 이벤트
+        $('.invite-btn').click(function () {
+            const nickname = $(this).data('nickname');
+            inviteMember(nickname, currentProjectId);
+        });
+    }
+
+    // ✅ 멤버 초대 기능
+    function inviteMember(nickName, projectId) {
+        fetch(`/api/projects/${projectId}/invite`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nickName: nickName })
+        })
+            .then(response => {
+                if (response.ok) {
+                    alert(`${nickName}님에게 초대 알림이 전송되었습니다.`);
+                    $('#searchInput').val('');  // 검색창 초기화
+                    $('#searchResults').empty();  // 검색 결과 초기화
+                } else {
+                    response.text().then(message => alert(`초대 실패: ${message}`));
+                }
+            })
+            .catch(error => console.error('초대 오류:', error));
+    }
+
+
+
+
+    document.addEventListener("DOMContentLoaded", function() {
+        fetch('/api/session/getProject')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("현재 세션에 저장된 프로젝트가 없습니다.");
+                }
+                return response.json();
+            })
+            .then(projectInfo => {
+                if (projectInfo.projectId) {
+                    document.getElementById('scheduleProjectId').value = projectInfo.projectId;
+                    console.log("✅ 세션에서 불러온 프로젝트:", projectInfo.projectName, "ID:", projectInfo.projectId);
+                }
+            })
+            .catch(error => console.error("❌ 프로젝트 정보 불러오기 오류:", error));
+    });
+
+    document.getElementById('project-schedule-form').addEventListener('submit', function(event) {
+        event.preventDefault();
+
+        let projectId = document.getElementById('scheduleProjectId').value;
+
+        if (!projectId) {
+            // 세션에서 프로젝트 ID 가져오기
+            fetch('/api/session/getProject')
+                .then(response => response.json())
+                .then(projectInfo => {
+                    if (projectInfo.projectId) {
+                        document.getElementById('scheduleProjectId').value = projectInfo.projectId;
+                        submitSchedule(projectInfo.projectId);
+                    } else {
+                        alert("프로젝트를 선택하세요!");
+                    }
+                })
+                .catch(error => {
+                    console.error("❌ 프로젝트 정보 불러오기 오류:", error);
+                    alert("프로젝트를 선택하세요!");
+                });
+        } else {
+            submitSchedule(projectId);
+        }
+    });
+
+    function submitSchedule(projectId) {
+        let formData = {
+            title: document.getElementById('scheduleTitle').value,
+            startDateTime: document.getElementById('scheduleStartDateTime').value,
+            endDateTime: document.getElementById('scheduleEndDateTime').value
+        };
+
+        console.log("📤 프로젝트 일정 추가 요청:", formData);
+
+        fetch(`/api/projects/${projectId}/schedules`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(formData)
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => { throw new Error(text); });
+                }
+                return response.text();
+            })
+            .then(data => {
+                console.log("✅ 일정 추가 성공:", data);
+                alert("일정이 추가되었습니다!");
+                location.reload();
+            })
+            .catch(error => {
+                console.error("❌ 일정 추가 오류:", error);
+                alert("일정 추가 실패: " + error.message);
+            });
+    }
+
+
+
+
+</script>
+
+
+</body>
+</html>

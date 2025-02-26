@@ -1,0 +1,45 @@
+spring:
+  devtools:
+    restart:
+      enabled: true
+  datasource:
+    url: jdbc:mysql://localhost:3306/calendar
+    username:
+    password:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+      ddl-auto: none  # 테이블 자동 생성 및 업데이트 (create, update, validate, none)
+    show-sql: true      # 실행되는 SQL 쿼리를 콘솔에 출력
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+    database: mysql
+
+  thymeleaf:
+    prefix: classpath:/templates/
+    suffix: .html
+    mode: HTML
+    cache: false  # 캐시 비활성화 (개발 중에는 false로 설정)
+
+  profiles:
+    include: oauth
+
+server:
+  servlet:
+    session:
+      cookie:
+        same-site: lax #none
+        secure: false  # HTTPS 환경에서만 작동(배포시에는 true로 변경)
+  port: 8080
+
+
+
+logging:
+  level:
+    org.springframework.security: DEBUG

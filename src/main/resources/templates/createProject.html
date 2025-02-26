@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>프로젝트 생성</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+</head>
+<body>
+<div class="container mt-5">
+    <h2 class="mb-4">프로젝트 생성</h2>
+
+    <!-- 프로젝트 이름 입력 -->
+    <div class="mb-3">
+        <label for="projectName" class="form-label">프로젝트 이름</label>
+        <input type="text" id="projectName" class="form-control" placeholder="프로젝트 이름을 입력하세요" required>
+    </div>
+
+    <!-- 닉네임 검색 -->
+    <div class="mb-3">
+        <label for="searchInput" class="form-label">팀원 닉네임 검색</label>
+        <div class="input-group">
+            <input type="text" id="searchInput" class="form-control" placeholder="닉네임을 입력하세요">
+            <button class="btn btn-primary" type="button" id="searchButton">검색</button>
+        </div>
+    </div>
+
+    <!-- 검색 결과 표시 -->
+    <ul id="searchResults" class="list-group mb-3"></ul>
+
+    <!-- 선택한 팀원 목록 -->
+    <h4>선택한 팀원</h4>
+    <ul id="selectedMembers" class="list-group mb-3"></ul>
+
+    <!-- 프로젝트 생성 버튼 -->
+    <button class="btn btn-success" id="createProjectBtn">프로젝트 생성</button>
+</div>
+
+<script>
+    // 닉네임 검색 기능
+    $('#searchButton').click(function () {
+        const query = $('#searchInput').val().trim();
+
+        if (!query) {
+            alert("닉네임을 입력하세요!");
+            return;
+        }
+
+        fetch(`/users/search?nickName=${encodeURIComponent(query)}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`서버 오류: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(users => {
+                displaySearchResults(users);
+            })
+            .catch(error => {
+                console.error('검색 오류:', error);
+                alert("검색 중 오류가 발생했습니다.");
+            });
+    });
+
+    // 검색 결과 표시
+    function displaySearchResults(users) {
+        const resultsContainer = $('#searchResults');
+        resultsContainer.empty();
+
+        if (!users || users.length === 0) {
+            resultsContainer.append('<li class="list-group-item text-danger">검색 결과가 없습니다.</li>');
+            return;
+        }
+
+        users.forEach(user => {
+            const listItem = $(`
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    ${user.nickName}
+                    <button class="btn btn-sm btn-secondary add-member-btn" data-nickname="${user.nickName}">추가</button>
+                </li>
+            `);
+            resultsContainer.append(listItem);
+        });
+
+        // 팀원 추가 버튼 이벤트
+        $('.add-member-btn').click(function () {
+            const nickname = $(this).data('nickname');
+            addMember(nickname);
+        });
+    }
+
+    // 팀원 추가
+    function addMember(nickname) {
+        const selectedMembers = $('#selectedMembers');
+
+        // 중복 추가 방지
+        if (selectedMembers.find(`li[data-nickname="${nickname}"]`).length > 0) {
+            alert("이미 추가된 팀원입니다.");
+            return;
+        }
+
+        const listItem = $(`
+            <li class="list-group-item d-flex justify-content-between align-items-center" data-nickname="${nickname}">
+                ${nickname}
+                <button class="btn btn-sm btn-danger remove-member-btn">삭제</button>
+            </li>
+        `);
+        selectedMembers.append(listItem);
+
+        // 삭제 버튼 이벤트
+        listItem.find('.remove-member-btn').click(function () {
+            listItem.remove();
+        });
+    }
+
+    $('#createProjectBtn').click(function () {
+        const projectName = $('#projectName').val().trim();
+        const members = $('#selectedMembers li').map(function () {
+            return $(this).data('nickname');
+        }).get();
+
+        if (!projectName) {
+            alert("프로젝트 이름을 입력하세요!");
+            return;
+        }
+
+        if (members.length === 0) {
+            alert("팀원을 최소 1명 이상 추가하세요!");
+            return;
+        }
+
+        const projectData = {
+            projectName: projectName,
+            members: members
+        };
+
+        // 서버에 프로젝트 생성 요청
+        $.ajax({
+            url: '/api/projects/create',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(projectData),
+            success: function (response) {
+                alert("프로젝트가 성공적으로 생성되었습니다!");
+                //window.location.href = '/';  // 프로젝트 생성 후 메인 페이지로 이동
+            },
+            error: function (error) {
+                console.error("프로젝트 생성 오류:", error);
+                alert("프로젝트 생성에 실패했습니다.");
+            }
+        });
+    });
+
+</script>
+
+</body>
+</html>

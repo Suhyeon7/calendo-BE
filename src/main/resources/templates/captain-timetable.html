@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>캡틴 - 회의 일정 설정</title>
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+</head>
+<body>
+<h2>📅 회의 일정 설정</h2>
+
+<label>회의 이름:</label>
+<input type="text" id="meetingName" placeholder="회의 이름 입력">
+
+<label>마감 기한:</label>
+<input type="datetime-local" id="deadline">
+
+<label>시작 날짜:</label>
+<input type="date" id="startDate">
+
+<label>종료 날짜:</label>
+<input type="date" id="endDate">
+
+<label>시작 시간:</label>
+<input type="time" id="startTime">
+
+<label>종료 시간:</label>
+<input type="time" id="endTime">
+
+<button onclick="setMeeting()">저장</button>
+
+<h3>✅ 현재 프로젝트 일정</h3>
+<ul id="timetableList"></ul>
+
+<script>
+    const urlParams = new URLSearchParams(window.location.search);
+    let projectId = urlParams.get('projectId');
+
+    function setMeeting() {
+        console.log("📌 '저장' 버튼 클릭됨!");
+
+        let meetingName = document.getElementById('meetingName').value;
+        let startDate = document.getElementById('startDate').value;
+        let endDate = document.getElementById('endDate').value;
+        let startTime = document.getElementById('startTime').value;
+        let endTime = document.getElementById('endTime').value;
+
+        // ✅ 현재 로그인한 사용자 ID 가져오기 (예: 로컬 스토리지 또는 API 요청)
+        fetch('/api/users/me')
+            .then(response => response.json())
+            .then(user => {
+                let userId = user.userId; // ✅ userId 값 가져오기
+
+                // ✅ 현재 시간 기준 7일 뒤의 날짜 계산 (ISO 형식으로 변환)
+                let deadline = new Date();
+                deadline.setDate(deadline.getDate() + 7);  // 현재 날짜 + 7일
+                let deadlineISO = deadline.toISOString();  // MySQL TIMESTAMP 형식으로 변환
+
+                if (!projectId || !meetingName || !startDate || !endDate || !startTime || !endTime || !userId) {
+                    alert("⚠️ 모든 필드를 입력해주세요.");
+                    return;
+                }
+
+                let requestData = {
+                    meetingName: meetingName,
+                    startDate: startDate,
+                    endDate: endDate,
+                    startTime: startTime,
+                    endTime: endTime,
+                    userId: userId,  // ✅ 추가됨
+                    projectId: projectId,  // ✅ 추가됨
+                    deadline: deadlineISO  // ✅ 추가됨
+                };
+
+                console.log("📤 저장 요청 데이터:", requestData);
+
+                fetch(`/api/timetables/${projectId}/create`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(requestData)
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log("✅ 저장 성공:", data);
+                        alert("✅ 약속 시간이 저장되었습니다!");
+                    })
+                    .catch(error => {
+                        console.error("❌ 저장 실패:", error);
+                        alert("❌ 저장 중 오류 발생");
+                    });
+            })
+            .catch(error => {
+                console.error("❌ 사용자 정보를 가져오는 데 실패했습니다.", error);
+                alert("⚠️ 사용자 정보를 확인할 수 없습니다.");
+            });
+
+        function loadTimetable() {
+            fetch(`/api/timetables/${projectId}`)
+                .then(response => response.json())
+                .then(timetables => {
+                    let timetableList = $("#timetableList");
+                    timetableList.empty();
+                    timetables.forEach(t => {
+                        timetableList.append(`<li>${t.meetingName} - ${t.startDate} ${t.startTime} ~ ${t.endDate} ${t.endTime}</li>`);
+                    });
+                })
+                .catch(error => console.error("❌ 일정 불러오기 오류:", error));
+        }
+    }
+
+    $(document).ready(loadTimetable);
+</script>
+</body>
+</html>
